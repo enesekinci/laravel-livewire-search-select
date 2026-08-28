@@ -5,6 +5,7 @@
     'emptyLabel' => '— Seçilmedi —',
     'nullable' => true,
     'accent' => '#0b5cab',
+    'teleport' => false,
 ])
 
 @php
@@ -38,19 +39,14 @@
         emptyLabel: {{ \Illuminate\Support\Js::from($emptyLabel) }},
         placeholder: {{ \Illuminate\Support\Js::from($placeholder) }},
         nullable: {{ $nullable ? 'true' : 'false' }},
+        teleport: {{ $teleport ? 'true' : 'false' }},
         panelStyle: '',
         init() {
-            this._onScroll = () => { if (this.open) this.positionPanel() }
+            this._onScroll = () => { if (this.open && this.teleport) this.positionPanel() }
             window.addEventListener('scroll', this._onScroll, true)
         },
         destroy() {
             window.removeEventListener('scroll', this._onScroll, true)
-        },
-        closeOnOutside(event) {
-            if (! this.open) return
-            if (this.$refs.trigger?.contains(event.target)) return
-            if (this.$refs.panel?.contains(event.target)) return
-            this.open = false
         },
         get filtered() {
             let q = this.search.trim().toLowerCase()
@@ -68,7 +64,7 @@
             const trigger = this.$refs.trigger
             if (! trigger) return
             const rect = trigger.getBoundingClientRect()
-            this.panelStyle = `position:fixed;top:${Math.round(rect.bottom + 6)}px;left:${Math.round(rect.left)}px;width:${Math.round(rect.width)}px;z-index:9998;`
+            this.panelStyle = `--ss-accent: {{ $accent }}; --ss-accent-soft: color-mix(in srgb, {{ $accent }} 15%, white); --ss-ring: color-mix(in srgb, {{ $accent }} 20%, transparent); position:fixed;top:${Math.round(rect.bottom + 6)}px;left:${Math.round(rect.left)}px;width:${Math.round(rect.width)}px;z-index:9998;`
         },
         select(opt) {
             this.value = opt
@@ -76,29 +72,35 @@
             this.open = false
         },
         toggle() {
-            this.open = ! this.open
             if (this.open) {
-                this.$nextTick(() => {
-                    this.positionPanel()
-                    this.$refs.q?.focus()
-                })
+                this.open = false
+                return
             }
+            if (this.teleport) {
+                this.positionPanel()
+            }
+            this.open = true
+            this.$nextTick(() => {
+                if (this.teleport) {
+                    this.positionPanel()
+                }
+                this.$refs.q?.focus()
+            })
         }
     }"
     @keydown.escape.window="open = false"
-    @pointerdown.window="closeOnOutside($event)"
-    @resize.window="open && positionPanel()"
+    @resize.window="open && teleport && positionPanel()"
     {{ $attributes->whereDoesntStartWith('wire:model')->class(['relative block space-y-1.5']) }}
 >
     @if ($label)
         <span class="text-sm font-medium text-slate-600">{{ $label }}</span>
     @endif
 
-    <div class="relative">
+    <div class="relative" @click.outside="! teleport && (open = false)">
         <button
             type="button"
             x-ref="trigger"
-            @click="toggle()"
+            @click.stop="toggle()"
             class="flex w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-left text-sm shadow-sm transition focus:outline-none"
             :class="open ? 'border-[var(--ss-accent)] ring-4 ring-[var(--ss-ring)]' : 'focus:border-[var(--ss-accent)] focus:ring-4 focus:ring-[var(--ss-ring)]'"
         >
@@ -108,53 +110,25 @@
             </svg>
         </button>
 
+        <div
+            x-show="open && ! teleport"
+            x-cloak
+            x-transition.opacity.duration.100ms
+            class="absolute z-[9998] mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10"
+        >
+            @include('search-select::components.partials.dropdown-panel')
+        </div>
+
         <template x-teleport="document.body">
             <div
-                x-ref="panel"
-                x-show="open"
+                x-show="open && teleport"
                 x-cloak
                 x-transition.opacity.duration.100ms
                 :style="panelStyle"
+                @click.outside="open = false"
                 class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10"
             >
-                <div class="border-b border-slate-100 p-2">
-                    <input
-                        x-ref="q"
-                        type="search"
-                        x-model="search"
-                        @keydown.enter.prevent="filtered[0] && select(filtered[0].value)"
-                        placeholder="{{ $placeholder }}"
-                        class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-[var(--ss-accent)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ss-ring)]"
-                    >
-                </div>
-
-                <ul class="max-h-56 overflow-y-auto py-1 text-sm">
-                    <template x-if="nullable">
-                        <li>
-                            <button
-                                type="button"
-                                @click="select(null)"
-                                class="flex w-full cursor-pointer px-3 py-2 text-left text-slate-500 hover:bg-slate-50"
-                                :class="(value === null || value === '') && 'bg-[var(--ss-accent-soft)] text-[var(--ss-accent)]'"
-                                x-text="emptyLabel"
-                            ></button>
-                        </li>
-                    </template>
-
-                    <template x-for="opt in filtered" :key="opt.value">
-                        <li>
-                            <button
-                                type="button"
-                                @click="select(opt.value)"
-                                class="flex w-full cursor-pointer px-3 py-2 text-left text-slate-800 hover:bg-slate-50"
-                                :class="String(value) === String(opt.value) && 'bg-[var(--ss-accent-soft)] font-medium text-[var(--ss-accent)]'"
-                                x-text="opt.label"
-                            ></button>
-                        </li>
-                    </template>
-
-                    <li x-show="filtered.length === 0" class="px-3 py-3 text-slate-400">Sonuç yok</li>
-                </ul>
+                @include('search-select::components.partials.dropdown-panel')
             </div>
         </template>
     </div>
