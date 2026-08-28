@@ -3,14 +3,18 @@
     "description": "Searchable select component for Laravel Livewire (Alpine + wire:model).",
     "type": "library",
     "license": "MIT",
-    "version": "1.0.2",
     "keywords": ["laravel", "livewire", "alpine", "select", "search", "combobox"],
     "authors": [
         {
             "name": "Enes Ekinci",
-            "email": "enesekinci@users.noreply.github.com"
+            "homepage": "https://github.com/enesekinci"
         }
     ],
+    "homepage": "https://github.com/enesekinci/laravel-livewire-search-select",
+    "support": {
+        "issues": "https://github.com/enesekinci/laravel-livewire-search-select/issues",
+        "source": "https://github.com/enesekinci/laravel-livewire-search-select"
+    },
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0|^12.0|^13.0",
