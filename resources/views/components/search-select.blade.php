@@ -11,7 +11,8 @@
 ])
 
 @php
-    $model = $attributes->wire('model');
+    $wireModel = $attributes->wire('model');
+    $modelName = $wireModel->value();
 
     $normalized = collect($options)
         ->map(function ($option) {
@@ -45,12 +46,12 @@
 @endphp
 
 <div
-    wire:key="search-select-{{ $model }}-{{ $optionsKey }}"
+    wire:key="search-select-{{ $modelName }}-{{ $optionsKey }}"
     style="--ss-accent: {{ $accent }}; --ss-accent-soft: color-mix(in srgb, {{ $accent }} 15%, white); --ss-ring: color-mix(in srgb, {{ $accent }} 20%, transparent);"
     x-data="{
         open: false,
         search: '',
-        value: @entangle($model).live,
+        value: @entangle($wireModel),
         options: {{ \Illuminate\Support\Js::from($normalized) }},
         emptyLabel: {{ \Illuminate\Support\Js::from($emptyLabel) }},
         emptyOptionsLabel: {{ \Illuminate\Support\Js::from($emptyOptionsLabel) }},
