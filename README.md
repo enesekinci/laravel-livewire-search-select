@@ -54,6 +54,10 @@ Zorunlu alan (boş seçenek yok):
 />
 ```
 
+Options ayrıca `id` / `name` anahtarlarını da kabul eder (`value` / `label` alias).
+
+Boş options listesinde trigger disabled olur, **Boş** rozeti ve uyarı metni gösterilir. Varsayılan `teleport=true` (overflow clip sorununu önler).
+
 Renk (opsiyonel):
 
 ```blade

@@ -4,7 +4,7 @@
         type="search"
         x-model="search"
         @keydown.enter.prevent="filtered[0] && select(filtered[0].value)"
-        placeholder="{{ $placeholder }}"
+        :placeholder="placeholder"
         class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-[var(--ss-accent)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--ss-ring)]"
     >
 </div>
@@ -20,7 +20,7 @@
         ></button>
     </li>
 
-    <template x-for="opt in filtered" :key="opt.value">
+    <template x-for="opt in filtered" :key="String(opt.value)">
         <li>
             <button
                 type="button"
@@ -32,5 +32,7 @@
         </li>
     </template>
 
-    <li x-show="filtered.length === 0" class="px-3 py-3 text-slate-400">Sonuç yok</li>
+    <li x-show="filtered.length === 0" class="px-3 py-3 text-slate-400">
+        <span x-text="hasOptions ? 'Sonuç yok' : emptyOptionsLabel"></span>
+    </li>
 </ul>

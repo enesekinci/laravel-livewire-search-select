@@ -3,7 +3,14 @@
     "description": "Searchable select component for Laravel Livewire (Alpine + wire:model).",
     "type": "library",
     "license": "MIT",
-    "keywords": ["laravel", "livewire", "alpine", "select", "search", "combobox"],
+    "keywords": [
+        "laravel",
+        "livewire",
+        "alpine",
+        "select",
+        "search",
+        "combobox"
+    ],
     "authors": [
         {
             "name": "Enes Ekinci",
@@ -34,5 +41,6 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "version": "1.1.0"
 }

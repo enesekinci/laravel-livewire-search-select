@@ -3,9 +3,11 @@
     'placeholder' => 'Ara / seç...',
     'options' => [],
     'emptyLabel' => '— Seçilmedi —',
+    'emptyOptionsLabel' => 'Seçenek listesi boş',
     'nullable' => true,
     'accent' => '#0b5cab',
-    'teleport' => false,
+    'teleport' => true,
+    'disabled' => false,
 ])
 
 @php
@@ -14,9 +16,19 @@
     $normalized = collect($options)
         ->map(function ($option) {
             if (is_array($option)) {
+                $value = $option['value'] ?? $option['id'] ?? '';
+                $label = $option['label'] ?? $option['name'] ?? '';
+
                 return [
-                    'value' => (string) ($option['value'] ?? ''),
-                    'label' => (string) ($option['label'] ?? ''),
+                    'value' => (string) $value,
+                    'label' => (string) $label,
+                ];
+            }
+
+            if (is_object($option)) {
+                return [
+                    'value' => (string) ($option->value ?? $option->id ?? ''),
+                    'label' => (string) ($option->label ?? $option->name ?? ''),
                 ];
             }
 
@@ -25,11 +37,15 @@
                 'label' => (string) $option,
             ];
         })
+        ->filter(fn (array $option) => $option['value'] !== '' || $option['label'] !== '')
         ->values()
         ->all();
+
+    $optionsKey = md5(json_encode($normalized) ?: '');
 @endphp
 
 <div
+    wire:key="search-select-{{ $model }}-{{ $optionsKey }}"
     style="--ss-accent: {{ $accent }}; --ss-accent-soft: color-mix(in srgb, {{ $accent }} 15%, white); --ss-ring: color-mix(in srgb, {{ $accent }} 20%, transparent);"
     x-data="{
         open: false,
@@ -37,9 +53,11 @@
         value: @entangle($model).live,
         options: {{ \Illuminate\Support\Js::from($normalized) }},
         emptyLabel: {{ \Illuminate\Support\Js::from($emptyLabel) }},
+        emptyOptionsLabel: {{ \Illuminate\Support\Js::from($emptyOptionsLabel) }},
         placeholder: {{ \Illuminate\Support\Js::from($placeholder) }},
         nullable: {{ $nullable ? 'true' : 'false' }},
         teleport: {{ $teleport ? 'true' : 'false' }},
+        disabled: {{ $disabled ? 'true' : 'false' }},
         panelStyle: '',
         init() {
             this._onScroll = () => { if (this.open && this.teleport) this.positionPanel() }
@@ -50,46 +68,34 @@
             window.removeEventListener('scroll', this._onScroll, true)
         },
         get hasOptions() {
-            return this.options.length > 0
+            return Array.isArray(this.options) && this.options.length > 0
+        },
+        get canOpen() {
+            return this.hasOptions && ! this.disabled
         },
         get filtered() {
             let q = this.search.trim().toLowerCase()
             if (! q) return this.options
-            return this.options.filter(o => o.label.toLowerCase().includes(q))
+            return this.options.filter(o => String(o.label).toLowerCase().includes(q))
         },
         get selectedLabel() {
             if (this.value === null || this.value === undefined || this.value === '') {
-                if (this.nullable) {
-                    return this.emptyLabel
+                if (! this.hasOptions) {
+                    return this.emptyOptionsLabel
                 }
 
-                return this.options[0]?.label ?? this.placeholder
+                return this.nullable ? this.emptyLabel : (this.placeholder || this.options[0]?.label || this.emptyLabel)
             }
 
             let hit = this.options.find(o => String(o.value) === String(this.value))
 
-            if (hit) {
-                return hit.label
-            }
-
-            if (this.nullable) {
-                return this.emptyLabel
-            }
-
-            return String(this.value)
-        },
-        get valueKnown() {
-            if (this.value === null || this.value === undefined || this.value === '') {
-                return this.nullable || this.options.length > 0
-            }
-
-            return this.options.some(o => String(o.value) === String(this.value))
+            return hit ? hit.label : (this.hasOptions ? String(this.value) : this.emptyOptionsLabel)
         },
         positionPanel() {
             const trigger = this.$refs.trigger
             if (! trigger) return
             const rect = trigger.getBoundingClientRect()
-            this.panelStyle = `--ss-accent: {{ $accent }}; --ss-accent-soft: color-mix(in srgb, {{ $accent }} 15%, white); --ss-ring: color-mix(in srgb, {{ $accent }} 20%, transparent); position:fixed;top:${Math.round(rect.bottom + 6)}px;left:${Math.round(rect.left)}px;width:${Math.round(rect.width)}px;z-index:9998;`
+            this.panelStyle = `position:fixed;top:${Math.round(rect.bottom + 6)}px;left:${Math.round(rect.left)}px;width:${Math.round(rect.width)}px;z-index:9998;`
         },
         select(opt) {
             this.value = opt
@@ -118,7 +124,9 @@
             this._outside = null
         },
         toggle() {
-            if (! this.hasOptions) return
+            if (! this.canOpen) {
+                return
+            }
 
             if (this.open) {
                 this.close()
@@ -152,22 +160,31 @@
             type="button"
             x-ref="trigger"
             @click.stop="toggle()"
-            :disabled="! hasOptions"
+            :disabled="! canOpen"
+            :aria-expanded="open.toString()"
+            :title="! hasOptions ? emptyOptionsLabel : placeholder"
             class="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-left text-sm shadow-sm transition focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
             :class="[
-                hasOptions ? 'cursor-pointer' : 'cursor-not-allowed',
+                canOpen ? 'cursor-pointer' : 'cursor-not-allowed',
                 open ? 'border-[var(--ss-accent)] ring-4 ring-[var(--ss-ring)]' : 'focus:border-[var(--ss-accent)] focus:ring-4 focus:ring-[var(--ss-ring)]',
-                ! valueKnown && hasOptions ? 'border-amber-300' : '',
+                ! hasOptions ? 'border-dashed border-amber-300 bg-amber-50/40' : '',
             ]"
         >
             <span
                 class="truncate"
-                :class="(value === null || value === undefined || value === '') ? 'text-slate-400' : (valueKnown ? 'text-slate-900' : 'text-amber-700')"
-                x-text="hasOptions ? selectedLabel : placeholder"
+                :class="(! hasOptions || value === null || value === undefined || value === '') ? 'text-slate-400' : 'text-slate-900'"
+                x-text="selectedLabel"
             ></span>
-            <svg class="h-4 w-4 shrink-0 text-slate-400 transition" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
+            <span class="flex shrink-0 items-center gap-1 text-slate-400">
+                <span
+                    x-show="! hasOptions"
+                    x-cloak
+                    class="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+                >Boş</span>
+                <svg class="h-4 w-4 transition" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </span>
         </button>
 
         @if ($teleport)
@@ -179,6 +196,7 @@
                     x-transition.opacity.duration.100ms
                     :style="panelStyle"
                     class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10"
+                    style="--ss-accent: {{ $accent }}; --ss-accent-soft: color-mix(in srgb, {{ $accent }} 15%, white); --ss-ring: color-mix(in srgb, {{ $accent }} 20%, transparent);"
                 >
                     @include('search-select::components.partials.dropdown-panel')
                 </div>
@@ -196,6 +214,5 @@
         @endif
     </div>
 
-    <p x-show="! hasOptions" x-cloak class="text-xs text-amber-700">Seçenek listesi boş.</p>
-    <p x-show="hasOptions && ! valueKnown && (value !== null && value !== undefined && value !== '')" x-cloak class="text-xs text-amber-700">Kayıtlı değer listede yok; yeni bir seçim yapın.</p>
+    <p x-show="! hasOptions" x-cloak class="text-xs text-amber-700">{{ $emptyOptionsLabel }}. Önce ilgili kaydı oluşturun veya filtreyi değiştirin.</p>
 </div>
