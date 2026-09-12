@@ -189,7 +189,7 @@
         </button>
 
         @if ($teleport)
-            <template x-teleport="document.body">
+            <template x-teleport="body">
                 <div
                     x-ref="panel"
                     x-show="open"
